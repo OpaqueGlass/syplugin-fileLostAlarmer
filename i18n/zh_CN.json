@@ -1,0 +1,41 @@
+{
+    "button_save": "保存",
+    "button_cancel": "取消",
+    "setting_panel_title": "资源文件丢失检查插件设置",
+
+
+    "setting_checkMissingAssets_name": "检查资源文件缺失情况",
+    "setting_checkMissingAssets_desp": "与 设置 资源 丢失的资源文件 使用相同的api",
+    "setting_checkRepoSnapshotSingleTypeCount_name": "同步后、单项文件删除警告阈值",
+    "setting_checkRepoSnapshotSingleTypeCount_desp": "检查.sy、.png、.jpg文件单项在近2个快照中是否存在缺失情况，这里设置对应的检测阈值，超过阈值将提示",
+    "setting_checkLastSnapshotRemoveThreshold_name": "同步后、关键文件删除警告阈值",
+    "setting_checkLastSnapshotRemoveThreshold_desp": "同步后，比对近1个快照，若有文件删除，则在超过阈值后提示（仅比较.sy文件、assets文件，不检查Confilct冲突文件）",
+    "setting_checkLastSnapshot3rdFileLostThreshold_name": "同步后、第三方文件删除警告阈值",
+    "setting_checkLastSnapshot3rdFileLostThreshold_desp": "同步后，比对近1个快照，若有第三方文件删除，则在超过阈值后提示（比较除.sy文件、assets文件以外的插件、挂件或其他类型的数据）",
+    "setting_alwaysShowSummaryDialog_name": "总是展示总结对话框",
+    "setting_alwaysShowSummaryDialog_desp": "启用后，无论是否发生文件删除、是否超出阈值，都在每次同步后展示总结对话框",
+
+    "check_file_lost_btn": "立即检查最近快照情况",
+    "file_lost_warning": "[syplugin-fileLostAlarmer]⚠发现文件丢失！",
+    "file_compare_result_title": "[syplugin-fileLostAlarmer]%%快照对比结果",
+    "file_lost_warning_desp": "最近同步中，发现文件移除情况如下：",
+    "assets_lost_warning": "资源文件移除<span class='og-file-lost-dialog-number'>%%</span>个",
+    "critical_lost_warning": "快照关键文件移除<span class='og-file-lost-dialog-number'>%%</span>个",
+    "3rd_lost_warning": "第三方文件移除<span class='og-file-lost-dialog-number'>%%</span>个",
+    "doc_id_not_exist_warning": "文档id不存在<span class='og-file-lost-dialog-number'>%%</span>个",
+    "critical_lost_detail": "关键资源文件移除列表：",
+    "3rd_lost_detail": "第三方文件移除列表：",
+
+    "assets_lost_warning_desp": "‼检测到%%个资源文件丢失，请手动确认",
+    "snapshot_file_count_warning_desp": "‼近3个快照中，发现有%%丢失，请手动确认",
+    "snapshot_removed_warning_desp": "‼近2个快照中，发现有%%个文档被移除，请手动确认",
+    "doc_id_not_exist_warning_desp": "‼检测到%%个文档id不存在，请手动确认",
+    
+    "file_count_type": "%1%个%2%",
+    "file_type_sy": ".sy: <span class='og-file-lost-dialog-number'>%%</span>",
+    "file_type_png": ".png: <span class='og-file-lost-dialog-number'>%%</span>",
+    "file_type_jpg": ".jpg: <span class='og-file-lost-dialog-number'>%%</span>",
+
+    "setting_experimental": "（⚠实验性功能，不稳定，可能随时被移除）",
+    "error_initFailed": "双击文档树（文档树增强）插件初始化失败，如果可以，请向开发者反馈此问题"
+}
