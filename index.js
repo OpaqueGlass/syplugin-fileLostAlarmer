@@ -40,6 +40,9 @@ const CONSTANTS = {
     POP_NONE: 0,
     POP_LIMIT: 1,
     POP_ALL: 2,
+    ICON_WARN: "❌⚠",
+    ICON_QUESTION: "❓",
+    ICON_SUCCESS: "✅",
 }
 let g_writeStorage;
 let g_isMobile = false;
@@ -102,7 +105,7 @@ class FileLostAlarmerPlugin extends siyuan.Plugin {
             // if (!initRetry()) {
             //     setInterval(initRetry, 3000);
             // }
-            setTimeout(checkMain, 5000);
+            setTimeout(checkMain.bind(false), 5000);
             setStyle();
         }, (e)=> {
             debugPush("配置文件读入失败", e);
@@ -182,10 +185,13 @@ class FileLostAlarmerPlugin extends siyuan.Plugin {
         // } else {
         //     document.querySelector('.sy__file')?.removeEventListener('click', clickFileTreeHandler, true);
         // }
-        this.eventBus.on("sync-end", checkMain);
+        this.eventBus.on("sync-end", this.checkIt);
     }
     eventBusUnbind() {
-        this.eventBus.off("sync-end", checkMain);
+        this.eventBus.off("sync-end", this.checkIt);
+    }
+    checkIt() {
+        checkMain(false);
     }
 }
 
@@ -288,6 +294,9 @@ async function checkMain(showDialog = false) {
         repoLastSnapshotRemoveList: [],
         repoLastSnapshotRemove3rdFileList: [],
         docIdNotExistDetailList: [],
+        currentSyncTimeStr: "",
+        previousSyncTimeStr: "",
+        isMergeSync: null,
     }
     let needAlert = false;
     data.assetsLostCount = await checkAssets();
@@ -296,15 +305,15 @@ async function checkMain(showDialog = false) {
     }
     let tempSnapshotNeedAlert = false;
     [tempSnapshotNeedAlert, data.repoSYFileLostCount, data.repoPNGFileLostCount, data.repoJPGFileLostCount,
-    data.repoLastSnapshotRemoveList, data.repoLastSnapshotRemove3rdFileList] = await checkRepoSnapshot();
+    data.repoLastSnapshotRemoveList, data.repoLastSnapshotRemove3rdFileList, data.isMergeSync, data.currentSyncTimeStr, data.previousSyncTimeStr] = await checkRepoSnapshot();
     if (tempSnapshotNeedAlert) {
         needAlert = true;
     }
-    debugPush("needAlert", needAlert);
+    debugPush("needAlert", needAlert, g_setting.alwaysShowSummaryDialog, showDialog);
     debugPush("data", data);
     // const totalLost = data.assetsLostCount + data.repoSYFileLostCount + data.repoPNGFileLostCount + data.repoJPGFileLostCount + repoLastSnapshotRemove3rdFileList.length + repoLastSnapshotRemoveList.length + data.docIdNotExistCount;
-    // TODO: 检查文件id是否存在
-    if (needAlert || (g_setting.alwaysShowSummaryDialog) || showDialog) {
+    // TODO: 检查文件id是否存在)
+    if (needAlert || g_setting.alwaysShowSummaryDialog || showDialog) {
         pushUserWarning(data);
     }
 }
@@ -315,11 +324,12 @@ async function pushUserWarning(data) {
         fileCount: getWarningEmoji(Math.max(data.repoSYFileLostCount, data.repoPNGFileLostCount, data.repoJPGFileLostCount), g_setting.checkRepoSnapshotSingleTypeCount),
         deleteFileCount: getWarningEmoji(data.repoLastSnapshotRemoveList.length, g_setting.checkLastSnapshotRemoveThreshold),
         delete3rdFileCount: getWarningEmoji(data.repoLastSnapshotRemove3rdFileList.length, g_setting.checkLastSnapshot3rdFileLostThreshold),
-        deleteFileIdCount: getWarningEmoji(data.docIdNotExistCount, 0)
+        deleteFileIdCount: getWarningEmoji(data.docIdNotExistDetailList.length, 0)
     }
     let despMsg = `
     <div style="overflow: scroll; max-height: 70vh">
-    ${language["file_lost_warning_desp"]}<br/>
+    
+    ${language["snapshot_sync_desp"].replace("%0%", data.isMergeSync ? language["merge_sync"]:"").replace("%1%", data.currentSyncTimeStr).replace("%2%", data.previousSyncTimeStr)}${language["file_lost_warning_desp"]}<br/>
     ${checkResult.assets}${language["assets_lost_warning"].replace("%%", data.assetsLostCount)} <br/>
 
     ${checkResult.deleteFileCount}${language["critical_lost_warning"].replace("%%",data.repoLastSnapshotRemoveList.length)}
@@ -332,28 +342,28 @@ async function pushUserWarning(data) {
     ${JSON.stringify(data.repoLastSnapshotRemove3rdFileList)}
     </div>
     `;
-    let type = "✅";
-    for (let icon in checkResult) {
-        if (icon == "❌⚠") {
+    let type = CONSTANTS.ICON_SUCCESS;
+    for (let key in checkResult) {
+        let icon = checkResult[key];
+        if (icon == CONSTANTS.ICON_WARN) {
             type = icon;
             break;
         }
-        if (icon == "❓") {
+        if (icon == CONSTANTS.ICON_QUESTION) {
             type = icon;
-            break;
         }
     }
     siyuan.confirm(language["file_compare_result_title"].replace("%%", type), despMsg, openRepoDialog);
-    if (type == "❌⚠") {
+    if (type == CONSTANTS.ICON_WARN) {
         siyuan.showMessage(language["file_lost_warning"]);
     }
     function getWarningEmoji(test, threshold) {
         if (test > threshold) {
-            return "❌⚠"
+            return CONSTANTS.ICON_WARN
         } else if (test <= 0) {
-            return "✅";
+            return CONSTANTS.ICON_SUCCESS;
         } else {
-            return "❓"
+            return CONSTANTS.ICON_QUESTION;
         }
     }
 }
@@ -381,63 +391,54 @@ async function checkRepoSnapshot() {
         warnPush("快照数量不足，无法检测文件丢失情况");
         return;
     }
-    // 检查总文件数
-    let syFileCheck = [];
-    let pngFileCheck = [];
-    let jpgFileCheck = [];
+    // 获取最近同步时间和上一次同步快照时间，注意，如果是merge，则需要获取[2]的快照时间为上一个快照同步时间
     let snapshotIds = [];
     for (let i = 0; i < 3; i++) {
         let snapshot = snapshotsList[i];
         snapshotIds.push(snapshot.id);
-        debugPush("snapshot", snapshot);
-        for (let fileType of snapshot.typesCount) {
-            switch (fileType.type) {
-                case ".png": {
-                    pngFileCheck.push(fileType.count);
-                    break;
-                }
-                case ".jpg": {
-                    jpgFileCheck.push(fileType.count);
-                    break;
-                }
-                case ".sy": {
-                    syFileCheck.push(fileType.count);
-                    break;
-                }
-                default: {
-                    break;
-                }
-            }
-        }
     }
-    let syFileGap = syFileCheck[1] - syFileCheck[0];
-    let pngFileGap = pngFileCheck[1] - pngFileCheck[0];
-    let jpgFileGap = jpgFileCheck[1] - jpgFileCheck[0];
-    if (syFileCheck[2] - syFileCheck[0] > syFileGap) {
-        syFileGap = syFileCheck[2] - syFileCheck[0];
+    let isMergeSync = false;
+    if (snapshotsList[0].memo.includes("[Sync] Cloud sync merge")) {
+        isMergeSync = true;
     }
-    if (pngFileCheck[2] - pngFileCheck[0] > pngFileGap) {
-        pngFileGap = pngFileCheck[2] - pngFileCheck[0];
+    // 生成同步时间和同步状态提示
+    let currentSyncTimeStr = snapshotsList[0].hCreated;
+    let previousSyncTimeStr = snapshotsList[1].hCreated;
+    if (isMergeSync) {
+        previousSyncTimeStr = snapshotsList[2].hCreated;
     }
-    if (jpgFileCheck[2] - jpgFileCheck[0] > jpgFileGap) {
-        jpgFileGap = jpgFileCheck[2] - jpgFileCheck[0];
-    }
-    if (syFileGap > g_setting.checkLastSnapshotRemoveThreshold
-        || pngFileGap > g_setting.checkLastSnapshotRemoveThreshold
-        || jpgFileGap > g_setting.checkLastSnapshotRemoveThreshold) {
-        needAlert = true;
-    }
+    // 检查总文件数
+    let removeJPGFileCount = 0, removePNGFileCount = 0, removeSYFileCount = 0;
     // 检查文件删除情况
     let diffSnapshots = await getDiffSnapshots(snapshotIds[1], snapshotIds[0]);
     let repoLastSnapshotRemoveList = [];
     let repoLastSnapshotRemove3rdFileList = [];
     if (diffSnapshots && diffSnapshots.removesRight && diffSnapshots.removesRight.length > 0) {
         for (let remove of diffSnapshots.removesRight) {
-            if (remove.path.startsWith("/assets") || (remove.path.endsWith(".sy") && !remove.title.includes("Conflicted") )) {
+            let lowerCasePath = remove.path.toLowerCase();
+            if (lowerCasePath.startsWith("/assets") || (lowerCasePath.endsWith(".sy") && !remove.title.includes("Conflicted") )) {
                 repoLastSnapshotRemoveList.push(remove.title);
+                switch (lowerCasePath.split(".").pop()) {
+                    case "jpg": {
+                        removeJPGFileCount++;
+                        break;
+                    }
+                    case "png": {
+                        removePNGFileCount++;
+                        break;
+                    }
+                    case "sy": {
+                        removeSYFileCount++;
+                        break;
+                    }
+                }
+                continue;
             }
             repoLastSnapshotRemove3rdFileList.push(remove.title);
         }
+    }
+    if (removeJPGFileCount > g_setting.checkRepoSnapshotSingleTypeCount || removePNGFileCount > g_setting.checkRepoSnapshotSingleTypeCount || removeSYFileCount > g_setting.checkRepoSnapshotSingleTypeCount) {
+        needAlert = true;
     }
     if (repoLastSnapshotRemoveList.length > g_setting.checkLastSnapshotRemoveThreshold) {
         needAlert = true;
@@ -445,8 +446,8 @@ async function checkRepoSnapshot() {
     if (repoLastSnapshotRemove3rdFileList.length > 0 && g_setting.checkLastSnapshot3rdFileLostThreshold) {
 
     }
-    debugPush("data_list", syFileGap, pngFileGap, jpgFileGap, repoLastSnapshotRemoveList);
-    return [needAlert, syFileGap, pngFileGap, jpgFileGap, repoLastSnapshotRemoveList, repoLastSnapshotRemove3rdFileList];
+    debugPush("data_list", removeSYFileCount, removePNGFileCount, removeJPGFileCount, repoLastSnapshotRemoveList);
+    return [needAlert, removeSYFileCount, removePNGFileCount, removeJPGFileCount, repoLastSnapshotRemoveList, repoLastSnapshotRemove3rdFileList, isMergeSync, currentSyncTimeStr, previousSyncTimeStr];
 }
 
 async function checkFileIdExist() {
