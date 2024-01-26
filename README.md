@@ -7,6 +7,8 @@
 After synchronization, call API to check whether there is missing resource file in the latest snapshot, and if there is, remind the user;
 
 > [!WARNING]
+> We not support English yet.
+>
 > The plugin checks through the Siyuan snapshot comparison API, only for automated execution of comparisons and prompting for file deletions, without separately implementing file snapshots or file status recording. 
 > 
 > If the Siyuan built-in synchronization is not used, synchronization conditions cannot be checked. If snapshot information is abnormal or delayed, synchronization deletion situations cannot be discovered either. 

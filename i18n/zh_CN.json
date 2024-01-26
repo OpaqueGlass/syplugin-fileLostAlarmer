@@ -27,6 +27,7 @@
     "doc_id_not_exist_warning": "文档id不存在<span class='og-file-lost-dialog-number'>%%</span>个",
     "critical_lost_detail": "关键资源文件移除列表：",
     "3rd_lost_detail": "第三方文件移除列表：",
+    "snapshot_not_enough": "快照数量不足，不能比对快照情况",
 
     "assets_lost_warning_desp": "‼检测到%%个资源文件丢失，请手动确认",
     "snapshot_file_count_warning_desp": "‼近3个快照中，发现有%%丢失，请手动确认",

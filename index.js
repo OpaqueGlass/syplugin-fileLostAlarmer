@@ -297,6 +297,7 @@ async function checkMain(showDialog = false) {
         currentSyncTimeStr: "",
         previousSyncTimeStr: "",
         isMergeSync: null,
+        snapshotNotEnought: false
     }
     let needAlert = false;
     data.assetsLostCount = await checkAssets();
@@ -304,7 +305,7 @@ async function checkMain(showDialog = false) {
         needAlert = true;
     }
     let tempSnapshotNeedAlert = false;
-    [tempSnapshotNeedAlert, data.repoSYFileLostCount, data.repoPNGFileLostCount, data.repoJPGFileLostCount,
+    [data.snapshotNotEnought, tempSnapshotNeedAlert, data.repoSYFileLostCount, data.repoPNGFileLostCount, data.repoJPGFileLostCount,
     data.repoLastSnapshotRemoveList, data.repoLastSnapshotRemove3rdFileList, data.isMergeSync, data.currentSyncTimeStr, data.previousSyncTimeStr] = await checkRepoSnapshot();
     if (tempSnapshotNeedAlert) {
         needAlert = true;
@@ -326,20 +327,27 @@ async function pushUserWarning(data) {
         delete3rdFileCount: getWarningEmoji(data.repoLastSnapshotRemove3rdFileList.length, g_setting.checkLastSnapshot3rdFileLostThreshold),
         deleteFileIdCount: getWarningEmoji(data.docIdNotExistDetailList.length, 0)
     }
+    let snapshopMsg = `
+    ${checkResult.deleteFileCount}${language["critical_lost_warning"].replace("%%",data.repoLastSnapshotRemoveList.length)}
+    (${language["file_type_sy"].replace("%%", data.repoSYFileLostCount)}, ${language["file_type_png"].replace("%%", data.repoPNGFileLostCount)}, ${language["file_type_jpg"].replace("%%", data.repoJPGFileLostCount)})<br/>
+    ${checkResult.delete3rdFileCount}${language["3rd_lost_warning"].replace("%%", data.repoLastSnapshotRemove3rdFileList.length)}<br/>
+    <!--移除文件列表-->
+    ${language["critical_lost_detail"]}<br/>
+    ${JSON.stringify(data.repoLastSnapshotRemoveList)} <br/>
+    ${language["3rd_lost_detail"]}<br/>
+    ${JSON.stringify(data.repoLastSnapshotRemove3rdFileList)}<br/>
+    `;
+    if (data.snapshotNotEnought) {
+        snapshopMsg = `${language["snapshot_not_enough"]}<br/>`;
+    }
     let despMsg = `
     <div style="overflow: scroll; max-height: 70vh">
     
     ${language["snapshot_sync_desp"].replace("%0%", data.isMergeSync ? language["merge_sync"]:"").replace("%1%", data.currentSyncTimeStr).replace("%2%", data.previousSyncTimeStr)}${language["file_lost_warning_desp"]}<br/>
     ${checkResult.assets}${language["assets_lost_warning"].replace("%%", data.assetsLostCount)} <br/>
 
-    ${checkResult.deleteFileCount}${language["critical_lost_warning"].replace("%%",data.repoLastSnapshotRemoveList.length)}
-    (${language["file_type_sy"].replace("%%", data.repoSYFileLostCount)}, ${language["file_type_png"].replace("%%", data.repoPNGFileLostCount)}, ${language["file_type_jpg"].replace("%%", data.repoJPGFileLostCount)})<br/>
-    ${checkResult.delete3rdFileCount}${language["3rd_lost_warning"].replace("%%", data.repoLastSnapshotRemove3rdFileList.length)}<br/>
+    ${snapshopMsg}
 
-    ${language["critical_lost_detail"]}<br/>
-    ${JSON.stringify(data.repoLastSnapshotRemoveList)} <br/>
-    ${language["3rd_lost_detail"]}<br/>
-    ${JSON.stringify(data.repoLastSnapshotRemove3rdFileList)}
     </div>
     `;
     let type = CONSTANTS.ICON_SUCCESS;
@@ -388,8 +396,8 @@ async function checkRepoSnapshot() {
     let needAlert = false;
     const snapshotsList = await getSnapshotsList();
     if (!snapshotsList || snapshotsList.length < 3) {
-        warnPush("快照数量不足，无法检测文件丢失情况");
-        return;
+        logPush("快照数量不足，无法检测文件丢失情况");
+        return [true, false, 0, 0, 0, [], [], false, 'N/A', 'N/A'];
     }
     // 获取最近同步时间和上一次同步快照时间，注意，如果是merge，则需要获取[2]的快照时间为上一个快照同步时间
     let snapshotIds = [];
@@ -416,7 +424,7 @@ async function checkRepoSnapshot() {
     if (diffSnapshots && diffSnapshots.removesRight && diffSnapshots.removesRight.length > 0) {
         for (let remove of diffSnapshots.removesRight) {
             let lowerCasePath = remove.path.toLowerCase();
-            if (lowerCasePath.startsWith("/assets") || (lowerCasePath.endsWith(".sy") && !remove.title.includes("Conflicted") )) {
+            if (lowerCasePath.startsWith("/assets") || (lowerCasePath.endsWith(".sy") && !remove.title.includes("conflict") )) {
                 repoLastSnapshotRemoveList.push(remove.title);
                 switch (lowerCasePath.split(".").pop()) {
                     case "jpg": {
@@ -447,7 +455,7 @@ async function checkRepoSnapshot() {
 
     }
     debugPush("data_list", removeSYFileCount, removePNGFileCount, removeJPGFileCount, repoLastSnapshotRemoveList);
-    return [needAlert, removeSYFileCount, removePNGFileCount, removeJPGFileCount, repoLastSnapshotRemoveList, repoLastSnapshotRemove3rdFileList, isMergeSync, currentSyncTimeStr, previousSyncTimeStr];
+    return [false, needAlert, removeSYFileCount, removePNGFileCount, removeJPGFileCount, repoLastSnapshotRemoveList, repoLastSnapshotRemove3rdFileList, isMergeSync, currentSyncTimeStr, previousSyncTimeStr];
 }
 
 async function checkFileIdExist() {
