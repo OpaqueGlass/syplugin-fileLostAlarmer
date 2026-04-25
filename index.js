@@ -105,7 +105,10 @@ class FileLostAlarmerPlugin extends siyuan.Plugin {
             // if (!initRetry()) {
             //     setInterval(initRetry, 3000);
             // }
-            setTimeout(checkMain.bind(false), 5000);
+            // 完全手动同步不在启动时自动检查
+            if (window.top?.siyuan?.config?.sync?.mode != 3) {
+                setTimeout(checkMain.bind(false), 5000);
+            }
             setStyle();
         }, (e)=> {
             debugPush("配置文件读入失败", e);
@@ -495,7 +498,7 @@ async function getMissingAssets() {
     let response = await request(url, {});
     debugPush("getMissingAssets", response);
     if (response.code == 0) {
-        return response.data.missingAssets;
+        return response.data.missingAssets === undefined ? response.data : response.data.missingAssets;
     }
     return null;
 }
